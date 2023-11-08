@@ -1,0 +1,42 @@
+variables:
+  vmImage: 'ubuntu-latest'
+  mavenJavaVersion: '1.17'
+  jdkArchitecture: 'x64'
+  mavenPomFile: 'pom.xml'
+  mavenOptions: '-Xmx3072m'
+  mavenGoals: 'clean install deploy'
+  secureFileMavenSettingsXml: 'settings.xml'
+
+pool:
+  vmImage: $(vmImage)
+
+jobs:
+  - job: Build
+    steps:
+      # Download the secure file specified by the variable `secureFileMavenSettingsXml`.
+      - task: DownloadSecureFile@1
+        inputs:
+          secureFile: $(secureFileMavenSettingsXml)
+
+      # Copy the downloaded `secureFileMavenSettingsXml` file to the default .m2 directory.
+      - script: |
+          mkdir -p ~/.m2
+          cp $(Agent.TempDirectory)/$(secureFileMavenSettingsXml) ~/.m2/settings.xml
+        displayName: 'Copy secureFileMavenSettingsXml to .m2 directory'
+
+      # Run the Maven deploy goal with the specified parameters.
+      - task: Maven@3
+        inputs:
+          mavenPomFile: $(mavenPomFile)
+          mavenOptions: $(mavenOptions)
+          jdkVersionOption: $(mavenJavaVersion)
+          jdkArchitectureOption: $(jdkArchitecture)
+          mavenAuthenticateFeed: true
+          publishJUnitResults: false
+          goals: $(mavenGoals)
+
+      # Cleanup the .m2 directory and agent's temporary directory
+      - script: |
+          rm -rf ~/.m2
+          rm -rf $(Agent.TempDirectory)
+        displayName: 'Cleanup .m2 directory and agent temporary directory'

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ORGANIZATION-NAME</groupId> <!-- AzureDevops organization name -->
+    <artifactId>ARTIFACT-NAME</artifactId> <!-- AzureDevops artifact name -->
+    <version>ARTIFACT-VERSION</version> <!-- AzureDevops artifact version -->
+
+    <properties>
+        <swagger.file.name>SWAGGER-FILE-NAME.json</swagger.file.name> <!-- Swagger file name -->
+        <swagger.url>SWAGGER-URL.json</swagger.url> <!-- Swagger json -->
+        <artifact.feed.name>ARTIFACT-FEED-NAME</artifact.feed.name> <!-- AzureDevops build artifact feed name -->
+        <artifact.feed.url> <!-- AzureDevops build artifact feed url -->
+            https://pkgs.dev.azure.com/ORGANIZATION-NAME/PROJECT-NAME/_packaging/ARTIFACT-FEED-NAME/maven/v1
+        </artifact.feed.url>
+        <project.domain.name>PROJECT-DOMAIN-NAME</project.domain.name> <!-- Directory path -->
+        <maven.compiler.source>use-same-version-in-pipeline</maven.compiler.source> <!-- Java version -->
+        <maven.compiler.target>use-same-version-in-pipeline</maven.compiler.target> <!-- Java version -->
+        <project.build.source.encoding>UTF-8</project.build.source.encoding>
+        <maven.compiler.plugin.version>3.10.1</maven.compiler.plugin.version>
+        <openapi.generator.maven.plugin.version>6.4.0</openapi.generator.maven.plugin.version>
+        <rest.assured.version>5.3.0</rest.assured.version>
+        <jackson.databind.version>2.14.2</jackson.databind.version>
+        <jackson.databind.nullable.version>0.2.6</jackson.databind.nullable.version>
+        <wagon.maven.plugin.version>2.0.2</wagon.maven.plugin.version>
+        <exec.maven.plugin.version>3.1.0</exec.maven.plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20230618</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest.assured.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>openapi-generator-maven-plugin</artifactId>
+            <version>${openapi.generator.maven.plugin.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>${jackson.databind.nullable.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiles the project's source code using the specified Java version -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+            </plugin>
+
+            <!-- Downloads the Swagger API specification JSON file from the specified URL -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>wagon-maven-plugin</artifactId>
+                <version>${wagon.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>download-swagger</id>
+                        <goals>
+                            <goal>download-single</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <url>${swagger.url}</url>
+                            <toDir>${project.basedir}/src/main/resources</toDir>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Generates API client code -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi.generator.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-client-api-code</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/${swagger.file.name}</inputSpec>
+                            <apiPackage>${project.domain.name}.api</apiPackage>
+                            <invokerPackage>${project.domain.name}.invoker</invokerPackage>
+                            <modelPackage>${project.domain.name}.model</modelPackage>
+                            <generatorName>java</generatorName>
+                            <skipValidateSpec>true</skipValidateSpec>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <configOptions>
+                                <dateLibrary>java8</dateLibrary>
+                                <library>rest-assured</library>
+                                <serializationLibrary>jackson</serializationLibrary>
+                            </configOptions>
+                            <output>${project.basedir}/target/generated-sources/</output>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Runs the SchemaExtractor Java class during the generate-test-resources phase -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <?m2e ignore?>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <phase>generate-test-resources</phase>
+                        <configuration>
+                            <mainClass>${project.domain.name}.SchemaExtractor</mainClass>
+                            <classpathScope>compile</classpathScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- Artifact distribution to AzureDevops build artifact feed -->
+    <distributionManagement>
+        <repository>
+            <!-- Must be the build feed-name in AzureDevops build artifacts feeds -->
+            <id>${artifact.feed.name}</id>
+            <url>${artifact.feed.url}</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </distributionManagement>
+</project>
